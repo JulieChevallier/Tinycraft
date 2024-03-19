@@ -104,12 +104,16 @@ int main() {
     glm::mat4 view;
 
 
-    // Camera
+    // Souris
+    sf::Mouse mouse;
+    window.requestFocus();
     window.setMouseCursorVisible(false);
     window.setMouseCursorGrabbed(true);
-    sf::Mouse::setPosition(sf::Vector2i(window.getSize().x / 2, window.getSize().y / 2), window);
-    
-    float lastX = window.getSize().x / 2, lastY = window.getSize().y / 2; 
+    sf::Vector2i centerPosition(window.getPosition().x + window.getSize().x / 2, window.getPosition().y + window.getSize().y / 2);
+    sf::Vector2i windowCenter(window.getSize().x / 2, window.getSize().y / 2);
+    mouse.setPosition(windowCenter, window);
+
+    float lastX = windowCenter.x, lastY = windowCenter.y;
     bool firstMouse = true;
     float yaw = -90.0f;
     float pitch = 0.0f;
@@ -124,46 +128,57 @@ int main() {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::E)) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num2)) cameraPos += cameraSpeed * cameraUp;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num1)) cameraPos -= cameraSpeed * cameraUp;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Tab)) cameraPos -= cameraSpeed * cameraUp;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) window.close();
 
-        // Gestion event
+        bool ignoreMouse = false;
         sf::Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) window.close();
-            if (event.type == sf::Event::MouseMoved) {
-                if (firstMouse) {
-                    lastX = event.mouseMove.x;
-                    lastY = event.mouseMove.y;
-                    firstMouse = false;
-                }
+            switch (event.type) {
+                case sf::Event::Closed:
+                    window.close();
+                    break;
+                case sf::Event::MouseMoved:
+                    if (ignoreMouse) {
+                        ignoreMouse = false;
+                        break;
+                    }
 
-                float xOffset = event.mouseMove.x - lastX;
-                float yOffset = lastY - event.mouseMove.y;
-                lastX = event.mouseMove.x;
-                lastY = event.mouseMove.y;
+                    if (!firstMouse) {
+                        float xOffset = event.mouseMove.x - lastX;
+                        float yOffset = lastY - event.mouseMove.y;
 
-                xOffset *= sensitivity;
-                yOffset *= sensitivity;
+                        yaw += xOffset * sensitivity;
+                        pitch += yOffset * sensitivity;
 
-                yaw += xOffset;
-                pitch += yOffset;
+                        if(pitch > 89.0f)
+                            pitch = 89.0f;
+                        if(pitch < -89.0f)
+                            pitch = -89.0f;
 
-                // Limitation de l'angle de la caméra
-                if(pitch > 89.0f)
-                    pitch = 89.0f;
-                if(pitch < -89.0f)
-                    pitch = -89.0f;
+                        // MAJ view camera
+                        glm::vec3 front;
+                        front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+                        front.y = sin(glm::radians(pitch));
+                        front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+                        cameraFront = glm::normalize(front);
 
-                glm::vec3 front;
-                front.x = glm::cos(glm::radians(yaw)) * glm::cos(glm::radians(pitch));
-                front.y = glm::sin(glm::radians(pitch));
-                front.z = glm::sin(glm::radians(yaw)) * glm::cos(glm::radians(pitch));
-                cameraFront = glm::normalize(front);
+                    } else {
+                        firstMouse = false;
+                    }
+
+                    mouse.setPosition(centerPosition, window);
+                    ignoreMouse = true;
+
+                    lastX = centerPosition.x;
+                    lastY = centerPosition.y;
+                    break;
+                case sf::Event::Resized:
+                    glViewport(0, 0, event.size.width, event.size.height);
+                    break;
             }
-            if (event.type == sf::Event::Resized) glViewport(0, 0, event.size.width, event.size.height);
         }
-        
+
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
