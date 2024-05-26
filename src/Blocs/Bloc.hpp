@@ -2,15 +2,24 @@
 #define BLOC_HPP
 
 #include <GL/glew.h>
+#include <glm/glm.hpp>
 
 class Bloc {
-protected:
-
 public:
-    Bloc();
+    Bloc(float x, float y, float z);
     virtual ~Bloc();
+    void Draw(GLuint shaderProgram) const;
+    glm::vec3 getPosition() const { return position; }
 
-    virtual void Draw(GLuint shaderProgram) const = 0;
+private:
+    void setColor();
+
+    GLuint VAO, VBO;  
+    glm::vec3 color;
+
+protected:
+    glm::vec3 position;
 };
+
 
 #endif // BLOC_HPP

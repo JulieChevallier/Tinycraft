@@ -6,14 +6,16 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Shaders/Shader.hpp"
-#include "Blocs/Dirt.hpp"
+#include "Blocs/Bloc.hpp"
+#include "PerlinNoise/PerlinNoise.hpp"
 
 int main() {
-    sf::Window window(sf::VideoMode(800, 600), "TinyCraft");
+    sf::Window window(sf::VideoMode(1600, 1200), "TinyCraft");
     window.setFramerateLimit(60);
     glewInit();
 
@@ -25,7 +27,7 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glUseProgram(shaderProgram);
 
-    glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 cameraPos = glm::vec3(32.0f, 25.0f, 32.0f);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -49,8 +51,35 @@ int main() {
     float pitch = 0.0f;
     float sensitivity = 0.1f;
 
+    PerlinNoise perlin;
+
+    int mapWidth = 64;
+    int mapDepth = 64;
+    double scale = 0.05; 
+    double heightMultiplier = 40.0; 
+    double heightOffset = 40.0; 
+
+    std::vector<Bloc> blocs;
+
+    for (int x = 0; x < mapWidth*2; ++x) {
+        for (int z = 0; z < mapDepth; ++z) {
+            double noise = perlin.noise(x * scale, 0.0, z * scale);
+            int height = static_cast<int>(noise * heightMultiplier + heightOffset); // Hauteur toujours un entier
+
+            for (int y = 15; y <= height; ++y) {
+                blocs.emplace_back(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
+            }
+        }
+    }
+
+    std::cout << "Generated " << blocs.size() << " blocks." << std::endl;
+
+    for (size_t i = 0; i < std::min(blocs.size(), size_t(10)); ++i) {
+        const auto& bloc = blocs[i];
+        std::cout << "Bloc " << i << ": (" << bloc.getPosition().x << ", " << bloc.getPosition().y << ", " << bloc.getPosition().z << ")" << std::endl;
+    }
     while (window.isOpen()) {
-        float cameraSpeed = 0.05f;
+        float cameraSpeed = 0.50f;
 
         // Bindings
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z)) cameraPos += cameraSpeed * cameraFront;
@@ -81,9 +110,9 @@ int main() {
                         yaw += xOffset * sensitivity;
                         pitch += yOffset * sensitivity;
 
-                        if (pitch > 89.0f)
+                        if(pitch > 89.0f)
                             pitch = 89.0f;
-                        if (pitch < -89.0f)
+                        if(pitch < -89.0f)
                             pitch = -89.0f;
 
                         // MAJ view camera
@@ -117,19 +146,19 @@ int main() {
 
         glUseProgram(shaderProgram);
 
+        glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+
+        // matrice to shader
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
         // Dessin des cubes
-        Dirt dirtBlock1(0.0f, 0.0f, 0.0f);  // Cube de référence
-        // Dirt dirtBlock2(1.0f, 0.0f, 0.0f);  // Déplacé vers la droite
-        // Dirt dirtBlock3(0.0f, 1.0f, 0.0f);  // Déplacé vers le haut
-        Dirt dirtBlock4(0.0f, 0.0f, 1.0f);  // Déplacé vers l'avant
-
-        dirtBlock1.Draw(shaderProgram);
-        // dirtBlock2.Draw(shaderProgram);
-        // dirtBlock3.Draw(shaderProgram);
-        dirtBlock4.Draw(shaderProgram);
+        for (const auto& bloc : blocs) {
+            bloc.Draw(shaderProgram);
+            // std::cout << "Drawing block at (" << bloc.getPosition().x << ", " << bloc.getPosition().y << ", " << bloc.getPosition().z << ")\n";
+        }
 
         window.display();
     }
