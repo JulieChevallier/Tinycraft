@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 #include <SFML/Window.hpp>
 #include <SFML/OpenGL.hpp>
+#include <SFML/Graphics.hpp>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -9,7 +10,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Shaders/Shader.hpp"
-// #include "Blocs/Bloc.hpp"
 #include "Blocs/Dirt.hpp"
 
 int main() {
@@ -34,7 +34,6 @@ int main() {
 
     glm::mat4 view;
 
-
     // Souris
     sf::Mouse mouse;
     window.requestFocus();
@@ -49,8 +48,6 @@ int main() {
     float yaw = -90.0f;
     float pitch = 0.0f;
     float sensitivity = 0.1f;
-
-    Bloc::InitializeGeometry();
 
     while (window.isOpen()) {
         float cameraSpeed = 0.05f;
@@ -84,9 +81,9 @@ int main() {
                         yaw += xOffset * sensitivity;
                         pitch += yOffset * sensitivity;
 
-                        if(pitch > 89.0f)
+                        if (pitch > 89.0f)
                             pitch = 89.0f;
-                        if(pitch < -89.0f)
+                        if (pitch < -89.0f)
                             pitch = -89.0f;
 
                         // MAJ view camera
@@ -120,25 +117,24 @@ int main() {
 
         glUseProgram(shaderProgram);
 
-        glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-
-        // matrice to shader
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-        // Dessin du cube
-        Dirt dirtBlock;
-        dirtBlock.Draw(shaderProgram);
+        // Dessin des cubes
+        Dirt dirtBlock1(0.0f, 0.0f, 0.0f);  // Cube de référence
+        // Dirt dirtBlock2(1.0f, 0.0f, 0.0f);  // Déplacé vers la droite
+        // Dirt dirtBlock3(0.0f, 1.0f, 0.0f);  // Déplacé vers le haut
+        Dirt dirtBlock4(0.0f, 0.0f, 1.0f);  // Déplacé vers l'avant
+
+        dirtBlock1.Draw(shaderProgram);
+        // dirtBlock2.Draw(shaderProgram);
+        // dirtBlock3.Draw(shaderProgram);
+        dirtBlock4.Draw(shaderProgram);
 
         window.display();
     }
 
-    Bloc::CleanupGeometry();
     glDeleteProgram(shaderProgram);
 
     return 0;
 }
-// appuie Numpad1 = créatif
-// appuie Numpad2 = survie
