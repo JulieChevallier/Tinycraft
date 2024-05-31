@@ -15,9 +15,25 @@
 #include "PerlinNoise/PerlinNoise.hpp"
 
 int main() {
-    sf::Window window(sf::VideoMode(1600, 1200), "TinyCraft");
+    sf::Font font;
+    if (!font.loadFromFile("src/Ressources/Minecraft.ttf")) {
+        std::cerr << "Failed to load font!" << std::endl;
+        return -1;
+    }
+
+    sf::Text text;
+    text.setFont(font);
+    text.setCharacterSize(24); 
+    text.setFillColor(sf::Color::White);
+    text.setPosition(10.f, 10.f); 
+
+    sf::RenderWindow window(sf::VideoMode(1600, 1200), "TinyCraft", sf::Style::Default, sf::ContextSettings(24));
     window.setFramerateLimit(60);
-    glewInit();
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK) {
+        std::cerr << "Failed to initialize GLEW" << std::endl;
+        return -1;
+    }
 
     // sources shaders
     std::string vertexSource = Shader::readShaderSource("src/Shaders/vertex_shader.glsl");
@@ -28,7 +44,7 @@ int main() {
     glUseProgram(shaderProgram);
 
     glm::vec3 cameraPos = glm::vec3(32.0f, 25.0f, 32.0f);
-    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 cameraFront = glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
@@ -52,19 +68,19 @@ int main() {
     float sensitivity = 0.1f;
 
     PerlinNoise perlin;
+    std::vector<Bloc> blocs;
 
-    int mapWidth = 64;
-    int mapDepth = 64;
+    int mapWidth = 32;
+    int mapDepth = 32;
     double scale = 0.05; 
     double heightMultiplier = 40.0; 
     double heightOffset = 40.0; 
 
-    std::vector<Bloc> blocs;
 
     for (int x = 0; x < mapWidth*2; ++x) {
         for (int z = 0; z < mapDepth; ++z) {
             double noise = perlin.noise(x * scale, 0.0, z * scale);
-            int height = static_cast<int>(noise * heightMultiplier + heightOffset); // Hauteur toujours un entier
+            int height = static_cast<int>(noise * heightMultiplier + heightOffset);
 
             for (int y = 15; y <= height; ++y) {
                 blocs.emplace_back(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
@@ -72,14 +88,12 @@ int main() {
         }
     }
 
-    std::cout << "Generated " << blocs.size() << " blocks." << std::endl;
-
     for (size_t i = 0; i < std::min(blocs.size(), size_t(10)); ++i) {
         const auto& bloc = blocs[i];
-        std::cout << "Bloc " << i << ": (" << bloc.getPosition().x << ", " << bloc.getPosition().y << ", " << bloc.getPosition().z << ")" << std::endl;
     }
+
     while (window.isOpen()) {
-        float cameraSpeed = 0.50f;
+        float cameraSpeed = 0.90f;
 
         // Bindings
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z)) cameraPos += cameraSpeed * cameraFront;
@@ -115,7 +129,6 @@ int main() {
                         if(pitch < -89.0f)
                             pitch = -89.0f;
 
-                        // MAJ view camera
                         glm::vec3 front;
                         front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
                         front.y = sin(glm::radians(pitch));
@@ -138,6 +151,10 @@ int main() {
             }
         }
 
+        text.setString("X: " + std::to_string(cameraPos.x) + " Y: " + std::to_string(cameraPos.y) + " Z: " + std::to_string(cameraPos.z));
+
+        window.clear();
+
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
@@ -149,7 +166,6 @@ int main() {
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
 
-        // matrice to shader
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -157,8 +173,14 @@ int main() {
         // Dessin des cubes
         for (const auto& bloc : blocs) {
             bloc.Draw(shaderProgram);
-            // std::cout << "Drawing block at (" << bloc.getPosition().x << ", " << bloc.getPosition().y << ", " << bloc.getPosition().z << ")\n";
+            // std::cout << bloc.getPosition().x << " " << bloc.getPosition().y << " " << bloc.getPosition().z << std::endl;
         }
+
+        while (glGetError() != GL_NO_ERROR) {} //TODO
+        window.pushGLStates();
+        window.draw(text);
+        window.popGLStates();
+
 
         window.display();
     }

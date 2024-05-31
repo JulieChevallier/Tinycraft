@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++14 -O3 -s
-LDFLAGS = -lGLEW -lGLU -lGL -lsfml-graphics -lsfml-audio -lsfml-system -lsfml-window -lSOIL -g
+LDFLAGS = -lGLEW -lGLU -lGL -lsfml-graphics -lsfml-audio -lsfml-system -lsfml-window -lSOIL -g -pthread
 EXEC = TinyCraft
 SRC = $(wildcard src/*.cpp) $(wildcard src/Shaders/*.cpp) $(wildcard src/Blocs/*.cpp) $(wildcard src/PerlinNoise/*.cpp) 
 OBJ = $(SRC:.cpp=.o)
