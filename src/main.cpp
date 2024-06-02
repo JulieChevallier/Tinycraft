@@ -77,6 +77,91 @@ void updateChunksAroundCamera(PerlinNoise& perlin, Coord cameraChunkCoord, doubl
     }
 }
 
+struct Plane {
+    glm::vec3 normal;
+    float distance;
+
+    Plane() : normal(glm::vec3(0.0f, 0.0f, 0.0f)), distance(0.0f) {}
+
+    Plane(const glm::vec3& n, float d) : normal(n), distance(d) {}
+
+    void fromPoints(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {
+        normal = glm::normalize(glm::cross(b - a, c - a));
+        distance = -glm::dot(normal, a);
+    }
+
+    float distanceToPoint(const glm::vec3& point) const {
+        return glm::dot(normal, point) + distance;
+    }
+};
+
+
+struct Frustum {
+    Plane planes[6];
+
+    void update(const glm::mat4& viewProjection) {
+        const float margin = 2.5f;
+        planes[0] = Plane(glm::vec3(viewProjection[0].w + viewProjection[0].x, 
+                                    viewProjection[1].w + viewProjection[1].x, 
+                                    viewProjection[2].w + viewProjection[2].x), 
+                        viewProjection[3].w + viewProjection[3].x + margin); // Plan left
+
+        planes[1] = Plane(glm::vec3(viewProjection[0].w - viewProjection[0].x, 
+                                    viewProjection[1].w - viewProjection[1].x, 
+                                    viewProjection[2].w - viewProjection[2].x), 
+                        viewProjection[3].w - viewProjection[3].x + margin); // Plan right
+
+        planes[2] = Plane(glm::vec3(viewProjection[0].w + viewProjection[0].y, 
+                                    viewProjection[1].w + viewProjection[1].y, 
+                                    viewProjection[2].w + viewProjection[2].y), 
+                        viewProjection[3].w + viewProjection[3].y + margin); // Plan bottom
+
+        planes[3] = Plane(glm::vec3(viewProjection[0].w - viewProjection[0].y, 
+                                    viewProjection[1].w - viewProjection[1].y, 
+                                    viewProjection[2].w - viewProjection[2].y), 
+                        viewProjection[3].w - viewProjection[3].y + margin); // Plan top
+
+        planes[4] = Plane(glm::vec3(viewProjection[0].w + viewProjection[0].z, 
+                                    viewProjection[1].w + viewProjection[1].z, 
+                                    viewProjection[2].w + viewProjection[2].z), 
+                        viewProjection[3].w + viewProjection[3].z + margin); // Plan near
+
+        planes[5] = Plane(glm::vec3(viewProjection[0].w - viewProjection[0].z, 
+                                    viewProjection[1].w - viewProjection[1].z, 
+                                    viewProjection[2].w - viewProjection[2].z), 
+                        viewProjection[3].w - viewProjection[3].z + margin); // Plan far
+
+        // Normalize the planes
+        for (int i = 0; i < 6; ++i) {
+            float length = glm::length(planes[i].normal);
+            planes[i].normal = -planes[i].normal;
+            planes[i].distance = -planes[i].distance;
+        }
+    }
+
+    bool intersects(const glm::vec3& min, const glm::vec3& max) const {
+        const float tolerance = 0.5f;
+
+        for (int i = 0; i < 6; ++i) {
+            const Plane& plane = planes[i];
+
+            // Chooses the extreme point of the bloc
+            glm::vec3 pVertex = min;
+            if (plane.normal.x > 0) pVertex.x = max.x;
+            if (plane.normal.y > 0) pVertex.y = max.y;
+            if (plane.normal.z > 0) pVertex.z = max.z;
+
+            // If the bloc is outside the frustum
+            if (plane.distanceToPoint(pVertex) - tolerance > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+
+
 int main() {
     sf::Font font;
     if (!font.loadFromFile("src/Ressources/Minecraft.ttf")) {
@@ -103,6 +188,8 @@ int main() {
     GLuint shaderProgram = Shader::createShaderProgram(vertexSource, fragmentSource);
 
     glEnable(GL_DEPTH_TEST);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
     glUseProgram(shaderProgram);
 
     glm::vec3 cameraPos = glm::vec3(0.0f, 40.0f, 0.0f);
@@ -216,6 +303,10 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
+        Frustum frustum;
+        glm::mat4 viewProjection = projection * view;
+        frustum.update(viewProjection);
+
         Coord cameraChunkCoord = {
             static_cast<int>(floor(cameraPos.x / CHUNK_SIZE) * CHUNK_SIZE),
             static_cast<int>(floor(cameraPos.z / CHUNK_SIZE) * CHUNK_SIZE)
@@ -227,7 +318,9 @@ int main() {
         
         for (const auto& chunk : chunks) {
             for (const auto& bloc : chunk) {
-                bloc.Draw(shaderProgram);
+                if (frustum.intersects(bloc.getMinBounds(), bloc.getMaxBounds())) {
+                    bloc.Draw(shaderProgram);
+                }
             }
         }
 

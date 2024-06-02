@@ -3,7 +3,7 @@
 #include <fstream>
 #include <sstream>
 
-
+// Read the shader source from a file
 std::string Shader::readShaderSource(const std::string& fileName) {
     std::ifstream file(fileName);
     std::stringstream buffer;
@@ -11,6 +11,7 @@ std::string Shader::readShaderSource(const std::string& fileName) {
     return buffer.str();
 }
 
+// Compile the shader
 GLuint Shader::compileShader(const std::string& source, GLenum type) {
     GLuint shader = glCreateShader(type);
     const char* src = source.c_str();
@@ -28,6 +29,7 @@ GLuint Shader::compileShader(const std::string& source, GLenum type) {
     return shader;
 }
 
+// Create the shader program
 GLuint Shader::createShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource) {
     GLuint vertexShader = compileShader(vertexShaderSource, GL_VERTEX_SHADER);
     GLuint fragmentShader = compileShader(fragmentShaderSource, GL_FRAGMENT_SHADER);

@@ -10,6 +10,8 @@ public:
     virtual ~Bloc();
     void Draw(GLuint shaderProgram) const;
     glm::vec3 getPosition() const { return position; }
+    glm::vec3 getMinBounds() const { return position - glm::vec3(0.5f, 0.5f, 0.5f); }
+    glm::vec3 getMaxBounds() const { return position + glm::vec3(0.5f, 0.5f, 0.5f); }
 
 private:
     void setColor();
