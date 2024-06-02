@@ -14,15 +14,25 @@
 #include "Shaders/Shader.hpp"
 #include "Blocs/Bloc.hpp"
 #include "PerlinNoise/PerlinNoise.hpp"
+#include <unordered_map>
+#include <functional>
 
 using Chunk = std::vector<Bloc>;
 using Coord = std::pair<int, int>;
+struct CoordHash {
+    std::size_t operator()(const Coord& coord) const {
+        return std::hash<int>()(coord.first) ^ std::hash<int>()(coord.second);
+    }
+};
 
 const int CHUNK_SIZE = 16;
 const int NUM_CHUNKS_PER_SIDE = 3;
 
 std::vector<Chunk> chunks;
+std::unordered_map<Coord, Chunk, CoordHash> chunkMap;
+std::vector<Coord> chunkCoordAlreadyGenerated;
 
+// Allowing to generate a chunk of blocs
 Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, double scale, double heightMultiplier, double heightOffset) {
     Chunk blocs;
     for (int x = 0; x < CHUNK_SIZE + 16; ++x) {
@@ -37,6 +47,7 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
     return blocs;
 }
 
+// Not used but for testing purposes
 void generateAllChunks(PerlinNoise& perlin, int centerX, int centerZ, double scale, double heightMultiplier, double heightOffset) {
     int offset = (NUM_CHUNKS_PER_SIDE - 1) / 2 * CHUNK_SIZE; 
 
@@ -45,6 +56,23 @@ void generateAllChunks(PerlinNoise& perlin, int centerX, int centerZ, double sca
             Coord startCoord = {centerX + i, centerZ + j};
             Coord endCoord = {startCoord.first + CHUNK_SIZE - 1, startCoord.second + CHUNK_SIZE - 1};
             chunks.push_back(generateChunk(perlin, startCoord, endCoord, scale, heightMultiplier, heightOffset));
+        }
+    }
+    // Test for a single chunk
+    // chunks.push_back(generateChunk(perlin, Coord(0,0), Coord(15,15), scale, heightMultiplier, heightOffset));
+}
+
+// Update the chunks around the camera when the camera moves
+void updateChunksAroundCamera(PerlinNoise& perlin, Coord cameraChunkCoord, double scale, double heightMultiplier, double heightOffset) {
+    int chunkRadius = 1; 
+    chunkCoordAlreadyGenerated.push_back(cameraChunkCoord);
+    for (int i = -chunkRadius; i <= chunkRadius; ++i) {
+        for (int j = -chunkRadius; j <= chunkRadius; ++j) {
+            Coord neighborChunkCoord = {cameraChunkCoord.first + i * CHUNK_SIZE, cameraChunkCoord.second + j * CHUNK_SIZE};
+            if (chunkMap.find(neighborChunkCoord) == chunkMap.end()){
+                Coord endCoord = {neighborChunkCoord.first + CHUNK_SIZE - 1, neighborChunkCoord.second + CHUNK_SIZE - 1};
+                chunks.push_back(generateChunk(perlin, neighborChunkCoord, endCoord, scale, heightMultiplier, heightOffset));
+            }
         }
     }
 }
@@ -104,11 +132,13 @@ int main() {
 
     int chunkSize = 16;
     double scale = 0.05; 
-    double heightMultiplier = 40.0;  // hauteur max
-    double heightOffset = 30.0; // hauteur de base
-    
-    generateAllChunks(perlin, 0, 0, scale, heightMultiplier, heightOffset);
-    
+    double heightMultiplier = 40.0;  // height max
+    double heightOffset = 30.0; // height normal
+
+    Coord initialChunkCoord = {0, 0};
+    updateChunksAroundCamera(perlin, Coord(0,0), scale, heightMultiplier, heightOffset);
+    chunkCoordAlreadyGenerated.push_back(initialChunkCoord);
+        
     while (window.isOpen()) {
         float cameraSpeed = 0.90f;
 
@@ -186,7 +216,15 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-        // Dessin des cubes
+        Coord cameraChunkCoord = {
+            static_cast<int>(floor(cameraPos.x / CHUNK_SIZE) * CHUNK_SIZE),
+            static_cast<int>(floor(cameraPos.z / CHUNK_SIZE) * CHUNK_SIZE)
+        };
+
+        if(std::find(chunkCoordAlreadyGenerated.begin(), chunkCoordAlreadyGenerated.end(), cameraChunkCoord) == chunkCoordAlreadyGenerated.end()) {
+            updateChunksAroundCamera(perlin, cameraChunkCoord, scale, heightMultiplier, heightOffset);
+        }
+        
         for (const auto& chunk : chunks) {
             for (const auto& bloc : chunk) {
                 bloc.Draw(shaderProgram);
