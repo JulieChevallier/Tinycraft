@@ -7,12 +7,47 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <tuple>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Shaders/Shader.hpp"
 #include "Blocs/Bloc.hpp"
 #include "PerlinNoise/PerlinNoise.hpp"
+
+using Chunk = std::vector<Bloc>;
+using Coord = std::pair<int, int>;
+
+const int CHUNK_SIZE = 16;
+const int NUM_CHUNKS_PER_SIDE = 3;
+
+std::vector<Chunk> chunks;
+
+Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, double scale, double heightMultiplier, double heightOffset) {
+    Chunk blocs;
+    for (int x = 0; x < CHUNK_SIZE + 16; ++x) {
+        for (int z = 0; z < CHUNK_SIZE; ++z) {
+            int coordX = startCoord.first + x - 16;
+            int coordZ = startCoord.second + z;
+            double noise = perlin.noise(coordX * scale, 0.0, coordZ * scale);
+            int height = static_cast<int>(noise * heightMultiplier + heightOffset);
+            blocs.emplace_back(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+        }
+    }
+    return blocs;
+}
+
+void generateAllChunks(PerlinNoise& perlin, int centerX, int centerZ, double scale, double heightMultiplier, double heightOffset) {
+    int offset = (NUM_CHUNKS_PER_SIDE - 1) / 2 * CHUNK_SIZE; 
+
+    for (int i = -offset; i <= offset; i += CHUNK_SIZE) {
+        for (int j = -offset; j <= offset; j += CHUNK_SIZE) {
+            Coord startCoord = {centerX + i, centerZ + j};
+            Coord endCoord = {startCoord.first + CHUNK_SIZE - 1, startCoord.second + CHUNK_SIZE - 1};
+            chunks.push_back(generateChunk(perlin, startCoord, endCoord, scale, heightMultiplier, heightOffset));
+        }
+    }
+}
 
 int main() {
     sf::Font font;
@@ -35,7 +70,6 @@ int main() {
         return -1;
     }
 
-    // sources shaders
     std::string vertexSource = Shader::readShaderSource("src/Shaders/vertex_shader.glsl");
     std::string fragmentSource = Shader::readShaderSource("src/Shaders/fragment_shader.glsl");
     GLuint shaderProgram = Shader::createShaderProgram(vertexSource, fragmentSource);
@@ -43,7 +77,7 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glUseProgram(shaderProgram);
 
-    glm::vec3 cameraPos = glm::vec3(32.0f, 25.0f, 32.0f);
+    glm::vec3 cameraPos = glm::vec3(0.0f, 40.0f, 0.0f);
     glm::vec3 cameraFront = glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -52,7 +86,6 @@ int main() {
 
     glm::mat4 view;
 
-    // Souris
     sf::Mouse mouse;
     window.requestFocus();
     window.setMouseCursorVisible(false);
@@ -63,39 +96,22 @@ int main() {
 
     float lastX = windowCenter.x, lastY = windowCenter.y;
     bool firstMouse = true;
-    float yaw = -90.0f;
-    float pitch = 0.0f;
+    float yaw = 0.0f; // yaw = rotation
+    float pitch = 0.0f; // pitch = inclinaison
     float sensitivity = 0.1f;
 
     PerlinNoise perlin;
-    std::vector<Bloc> blocs;
 
-    int mapWidth = 32;
-    int mapDepth = 32;
+    int chunkSize = 16;
     double scale = 0.05; 
-    double heightMultiplier = 40.0; 
-    double heightOffset = 40.0; 
-
-
-    for (int x = 0; x < mapWidth*2; ++x) {
-        for (int z = 0; z < mapDepth; ++z) {
-            double noise = perlin.noise(x * scale, 0.0, z * scale);
-            int height = static_cast<int>(noise * heightMultiplier + heightOffset);
-
-            for (int y = 15; y <= height; ++y) {
-                blocs.emplace_back(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z));
-            }
-        }
-    }
-
-    for (size_t i = 0; i < std::min(blocs.size(), size_t(10)); ++i) {
-        const auto& bloc = blocs[i];
-    }
-
+    double heightMultiplier = 40.0;  // hauteur max
+    double heightOffset = 30.0; // hauteur de base
+    
+    generateAllChunks(perlin, 0, 0, scale, heightMultiplier, heightOffset);
+    
     while (window.isOpen()) {
         float cameraSpeed = 0.90f;
 
-        // Bindings
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z)) cameraPos += cameraSpeed * cameraFront;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) cameraPos -= cameraSpeed * cameraFront;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
@@ -164,16 +180,17 @@ int main() {
         glUseProgram(shaderProgram);
 
         glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), float(window.getSize().x) / window.getSize().y, 0.1f, 100.0f);
 
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
         // Dessin des cubes
-        for (const auto& bloc : blocs) {
-            bloc.Draw(shaderProgram);
-            // std::cout << bloc.getPosition().x << " " << bloc.getPosition().y << " " << bloc.getPosition().z << std::endl;
+        for (const auto& chunk : chunks) {
+            for (const auto& bloc : chunk) {
+                bloc.Draw(shaderProgram);
+            }
         }
 
         while (glGetError() != GL_NO_ERROR) {} //TODO
