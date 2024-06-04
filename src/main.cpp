@@ -11,72 +11,114 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "Shaders/Shader.hpp"
-#include "Blocs/Bloc.hpp"
-#include "PerlinNoise/PerlinNoise.hpp"
 #include <unordered_map>
-#include <functional>
+#include <memory>
+#include "Shaders/Shader.hpp"
+#include "Blocs/Dirt.cpp"
+#include "Blocs/Grass.cpp"
+#include "Blocs/Stone.cpp"
+#include "PerlinNoise/PerlinNoise.hpp"
 
-using Chunk = std::vector<Bloc>;
-using Coord = std::pair<int, int>;
+using BlocPtr = std::unique_ptr<Bloc>;
+using Chunk = std::vector<BlocPtr>;
+using Coord = std::tuple<int, int, int>;
 struct CoordHash {
-    std::size_t operator()(const Coord& coord) const {
-        return std::hash<int>()(coord.first) ^ std::hash<int>()(coord.second);
+    std::size_t operator()(const std::tuple<int, int, int>& coord) const noexcept {
+        auto [x, y, z] = coord;
+        std::size_t h1 = std::hash<int>{}(x);
+        std::size_t h2 = std::hash<int>{}(y);
+        std::size_t h3 = std::hash<int>{}(z);
+        return h1 ^ (h2 << 1) ^ (h3 << 2);
     }
 };
 
 const int CHUNK_SIZE = 16;
 const int NUM_CHUNKS_PER_SIDE = 3;
 
-std::vector<Chunk> chunks;
 std::unordered_map<Coord, Chunk, CoordHash> chunkMap;
+std::unordered_map<Coord, Bloc*, CoordHash> blocMap;
 std::vector<Coord> chunkCoordAlreadyGenerated;
+std::vector<Coord> listeBlocAVerif;
 
-// Allowing to generate a chunk of blocs
+void addBlocToMap(Bloc* bloc) {
+    int x = static_cast<int>(std::round(bloc->getPosition().x));
+    int y = static_cast<int>(std::round(bloc->getPosition().y));
+    int z = static_cast<int>(std::round(bloc->getPosition().z));
+    Coord key(x, y, z);
+    blocMap[key] = bloc;
+}
+
+// Use for smoothChunk when I will have time to implement it
+// int findBlocAtXZ(int x, int z) {
+//     for (const auto& entry : blocMap) {
+//         int bx = std::get<0>(entry.first);
+//         int bz = std::get<2>(entry.first);
+//         if (bx == x && bz == z) {
+//             return std::get<1>(entry.first);
+//         }
+//     }
+//     return -1;
+// }
+
+// Smoothing the terrain by adding blocs between the blocs
+// TODO: Make an algorithm which is more useful
+void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
+    std::vector<Coord> toRemove;
+
+    for (const auto& entry : listeBlocAVerif) {
+        int x = std::get<0>(entry);
+        int y = std::get<1>(entry);
+        int z = std::get<2>(entry);
+        for (int i = y - 3; i < y; ++i) {
+            BlocPtr bloc = std::make_unique<Bloc>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+            addBlocToMap(bloc.get());
+            chunkMap[Coord(x, i, z)].emplace_back(std::move(bloc));
+        }
+        toRemove.push_back(entry);
+    }
+
+    for (const auto& rem : toRemove) {
+        listeBlocAVerif.erase(std::remove(listeBlocAVerif.begin(), listeBlocAVerif.end(), rem), listeBlocAVerif.end());
+    }
+}
+
+// Generate a chunk of blocs
 Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, double scale, double heightMultiplier, double heightOffset) {
     Chunk blocs;
     for (int x = 0; x < CHUNK_SIZE + 16; ++x) {
         for (int z = 0; z < CHUNK_SIZE; ++z) {
-            int coordX = startCoord.first + x - 16;
-            int coordZ = startCoord.second + z;
+            int coordX = std::get<0>(startCoord) + x - 16;
+            int coordZ = std::get<2>(startCoord) + z;
             double noise = perlin.noise(coordX * scale, 0.0, coordZ * scale);
             int height = static_cast<int>(noise * heightMultiplier + heightOffset);
-            blocs.emplace_back(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+            BlocPtr bloc = std::make_unique<Bloc>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+            addBlocToMap(bloc.get());
+            blocs.emplace_back(std::move(bloc));
+            listeBlocAVerif.push_back(Coord(coordX, height, coordZ));
+            chunkMap[Coord(coordX, height, coordZ)] = std::move(blocs);
         }
     }
     return blocs;
 }
 
-// Not used but for testing purposes
-void generateAllChunks(PerlinNoise& perlin, int centerX, int centerZ, double scale, double heightMultiplier, double heightOffset) {
-    int offset = (NUM_CHUNKS_PER_SIDE - 1) / 2 * CHUNK_SIZE; 
-
-    for (int i = -offset; i <= offset; i += CHUNK_SIZE) {
-        for (int j = -offset; j <= offset; j += CHUNK_SIZE) {
-            Coord startCoord = {centerX + i, centerZ + j};
-            Coord endCoord = {startCoord.first + CHUNK_SIZE - 1, startCoord.second + CHUNK_SIZE - 1};
-            chunks.push_back(generateChunk(perlin, startCoord, endCoord, scale, heightMultiplier, heightOffset));
-        }
-    }
-    // Test for a single chunk
-    // chunks.push_back(generateChunk(perlin, Coord(0,0), Coord(15,15), scale, heightMultiplier, heightOffset));
-}
-
 // Update the chunks around the camera when the camera moves
 void updateChunksAroundCamera(PerlinNoise& perlin, Coord cameraChunkCoord, double scale, double heightMultiplier, double heightOffset) {
-    int chunkRadius = 1; 
+    int chunkRadius = 1;
     chunkCoordAlreadyGenerated.push_back(cameraChunkCoord);
     for (int i = -chunkRadius; i <= chunkRadius; ++i) {
         for (int j = -chunkRadius; j <= chunkRadius; ++j) {
-            Coord neighborChunkCoord = {cameraChunkCoord.first + i * CHUNK_SIZE, cameraChunkCoord.second + j * CHUNK_SIZE};
-            if (chunkMap.find(neighborChunkCoord) == chunkMap.end()){
-                Coord endCoord = {neighborChunkCoord.first + CHUNK_SIZE - 1, neighborChunkCoord.second + CHUNK_SIZE - 1};
-                chunks.push_back(generateChunk(perlin, neighborChunkCoord, endCoord, scale, heightMultiplier, heightOffset));
+            Coord neighborChunkCoord(std::get<0>(cameraChunkCoord) + i * CHUNK_SIZE, 0, std::get<2>(cameraChunkCoord) + j * CHUNK_SIZE);
+            if (blocMap.find(neighborChunkCoord) == blocMap.end()) {
+                Coord endCoord = {std::get<0>(neighborChunkCoord) + CHUNK_SIZE - 1, 0, std::get<2>(neighborChunkCoord) + CHUNK_SIZE - 1};
+                Chunk newChunk = generateChunk(perlin, neighborChunkCoord, endCoord, scale, heightMultiplier, heightOffset);
+                smoothChunk(listeBlocAVerif);
+                chunkMap.emplace(neighborChunkCoord, std::move(newChunk));
             }
         }
     }
 }
 
+// Frustum culling to avoid rendering blocs that are not in the camera's view
 struct Plane {
     glm::vec3 normal;
     float distance;
@@ -95,7 +137,7 @@ struct Plane {
     }
 };
 
-
+// Frustum culling to avoid rendering blocs that are not in the camera's view
 struct Frustum {
     Plane planes[6];
 
@@ -161,7 +203,6 @@ struct Frustum {
 };
 
 
-
 int main() {
     sf::Font font;
     if (!font.loadFromFile("src/Ressources/Minecraft.ttf")) {
@@ -221,9 +262,10 @@ int main() {
     double scale = 0.05; 
     double heightMultiplier = 40.0;  // height max
     double heightOffset = 30.0; // height normal
+    
 
-    Coord initialChunkCoord = {0, 0};
-    updateChunksAroundCamera(perlin, Coord(0,0), scale, heightMultiplier, heightOffset);
+    Coord initialChunkCoord = {0, 0, 0};
+    updateChunksAroundCamera(perlin, Coord(0,0,0), scale, heightMultiplier, heightOffset);
     chunkCoordAlreadyGenerated.push_back(initialChunkCoord);
         
     while (window.isOpen()) {
@@ -309,6 +351,7 @@ int main() {
 
         Coord cameraChunkCoord = {
             static_cast<int>(floor(cameraPos.x / CHUNK_SIZE) * CHUNK_SIZE),
+            0,
             static_cast<int>(floor(cameraPos.z / CHUNK_SIZE) * CHUNK_SIZE)
         };
 
@@ -316,13 +359,13 @@ int main() {
             updateChunksAroundCamera(perlin, cameraChunkCoord, scale, heightMultiplier, heightOffset);
         }
         
-        for (const auto& chunk : chunks) {
-            for (const auto& bloc : chunk) {
-                if (frustum.intersects(bloc.getMinBounds(), bloc.getMaxBounds())) {
-                    bloc.Draw(shaderProgram);
-                }
+        for (const auto& pair : blocMap) {
+            const Bloc* bloc = pair.second;
+            if (bloc != nullptr && frustum.intersects(bloc->getMinBounds(), bloc->getMaxBounds())) {
+                bloc->Draw(shaderProgram);
             }
         }
+
 
         while (glGetError() != GL_NO_ERROR) {} //TODO
         window.pushGLStates();
@@ -332,7 +375,8 @@ int main() {
 
         window.display();
     }
-
+    
+    blocMap.clear();
     glDeleteProgram(shaderProgram);
 
     return 0;
