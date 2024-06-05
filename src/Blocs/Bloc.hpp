@@ -3,25 +3,28 @@
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
+#include <iostream>
+#include "stb_image.h"
 
 class Bloc {
 public:
-    Bloc(float x, float y, float z);
+    Bloc(float x, float y, float z, bool useTexture = false);
     virtual ~Bloc();
-    void Draw(GLuint shaderProgram) const;
+    virtual void Draw(GLuint shaderProgram) const;
     glm::vec3 getPosition() const { return position; }
     glm::vec3 getMinBounds() const { return position - glm::vec3(0.5f, 0.5f, 0.5f); }
     glm::vec3 getMaxBounds() const { return position + glm::vec3(0.5f, 0.5f, 0.5f); }
+    bool getUseTexture() const { return useTexture; }
 
-private:
+protected:
+    virtual void setupTexture() = 0;
     void setColor();
 
     GLuint VAO, VBO;  
-    glm::vec3 color;
-
-protected:
+    GLuint textureID;
     glm::vec3 position;
+    glm::vec3 color;
+    bool useTexture;
 };
-
 
 #endif // BLOC_HPP

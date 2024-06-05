@@ -14,10 +14,40 @@
 #include <unordered_map>
 #include <memory>
 #include "Shaders/Shader.hpp"
-#include "Blocs/Dirt.cpp"
-#include "Blocs/Grass.cpp"
-#include "Blocs/Stone.cpp"
+#include "Blocs/Dirt.hpp"
+#include "Blocs/Grass.hpp"
+#include "Blocs/Stone.hpp"
+#include "Blocs/Sand.hpp"
+#include "Blocs/Normal.hpp"
 #include "PerlinNoise/PerlinNoise.hpp"
+
+
+void testTextureLoading(const char* texturePath) {
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load(texturePath, &width, &height, &nrChannels, 0);
+    if (data) {
+        GLuint textureID;
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+
+        GLenum format = GL_RGB;
+        if (nrChannels == 4)
+            format = GL_RGBA;
+
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+        std::cout << "Texture loaded: " << texturePath << " - " << width << "x" << height << " channels: " << nrChannels << std::endl;
+    } else {
+        std::cerr << "Failed to load texture: " << texturePath << std::endl;
+    }
+}
 
 using BlocPtr = std::unique_ptr<Bloc>;
 using Chunk = std::vector<BlocPtr>;
@@ -70,7 +100,7 @@ void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
         int y = std::get<1>(entry);
         int z = std::get<2>(entry);
         for (int i = y - 3; i < y; ++i) {
-            BlocPtr bloc = std::make_unique<Bloc>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+            BlocPtr bloc = std::make_unique<Normal>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
             addBlocToMap(bloc.get());
             chunkMap[Coord(x, i, z)].emplace_back(std::move(bloc));
         }
@@ -91,7 +121,7 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
             int coordZ = std::get<2>(startCoord) + z;
             double noise = perlin.noise(coordX * scale, 0.0, coordZ * scale);
             int height = static_cast<int>(noise * heightMultiplier + heightOffset);
-            BlocPtr bloc = std::make_unique<Bloc>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+            BlocPtr bloc = std::make_unique<Normal>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
             addBlocToMap(bloc.get());
             blocs.emplace_back(std::move(bloc));
             listeBlocAVerif.push_back(Coord(coordX, height, coordZ));
@@ -262,6 +292,7 @@ int main() {
     double scale = 0.05; 
     double heightMultiplier = 40.0;  // height max
     double heightOffset = 30.0; // height normal
+
     
 
     Coord initialChunkCoord = {0, 0, 0};
@@ -358,10 +389,28 @@ int main() {
         if(std::find(chunkCoordAlreadyGenerated.begin(), chunkCoordAlreadyGenerated.end(), cameraChunkCoord) == chunkCoordAlreadyGenerated.end()) {
             updateChunksAroundCamera(perlin, cameraChunkCoord, scale, heightMultiplier, heightOffset);
         }
+
+        Dirt dirt(0.0f, 0.0f, 0.0f);
+        Grass grass(2.0f, 0.0f, 0.0f);
+        Stone stone(4.0f, 0.0f, 0.0f);
+        Sand sand(6.0f, 0.0f, 0.0f);
+
+        addBlocToMap(&dirt);
+        addBlocToMap(&grass);
+        addBlocToMap(&stone);
+        addBlocToMap(&sand);
+
+        testTextureLoading("src/Ressources/grass_block_top.png");
+        testTextureLoading("src/Ressources/grass_block_side.png");
+        testTextureLoading("src/Ressources/dirt.png");
+        testTextureLoading("src/Ressources/stone.png");
+        testTextureLoading("src/Ressources/sand.png");
+
         
         for (const auto& pair : blocMap) {
             const Bloc* bloc = pair.second;
             if (bloc != nullptr && frustum.intersects(bloc->getMinBounds(), bloc->getMaxBounds())) {
+                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), bloc->getUseTexture());
                 bloc->Draw(shaderProgram);
             }
         }
@@ -376,6 +425,7 @@ int main() {
         window.display();
     }
     
+    chunkMap.clear();
     blocMap.clear();
     glDeleteProgram(shaderProgram);
 
