@@ -23,6 +23,7 @@ public:
     glm::vec3 getMaxBounds() const { return position + glm::vec3(0.5f, 0.5f, 0.5f); }
     bool getUseTexture() const { return useTexture; }
     virtual BlocType getType() const = 0;
+    virtual float getAlpha() const { return 1.0f; }
 
 protected:
     virtual void setupTexture() = 0;

@@ -13,6 +13,10 @@ public:
         return BlocType::NORMAL;
     }
 
+    float getAlpha() const override {
+        return 1.0f;
+    }
+
 protected:
     void setupTexture() override {
         // No texture

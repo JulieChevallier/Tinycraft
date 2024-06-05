@@ -111,6 +111,8 @@ void Bloc::Draw(GLuint shaderProgram) const {
         glUniform3fv(glGetUniformLocation(shaderProgram, "color"), 1, glm::value_ptr(color));
     }
 
+    glUniform1f(glGetUniformLocation(shaderProgram, "alpha"), getAlpha());
+
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
 

@@ -1,4 +1,5 @@
 #include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <SFML/Window.hpp>
 #include <SFML/OpenGL.hpp>
 #include <SFML/Graphics.hpp>
@@ -13,6 +14,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <unordered_map>
 #include <memory>
+#include <algorithm>
 #include "Shaders/Shader.hpp"
 #include "Blocs/Dirt.hpp"
 #include "Blocs/Grass.hpp"
@@ -105,6 +107,18 @@ void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
     }
 }
 
+void generateWater(int x, int y, int z) {
+    for (int i = y; i < 19; i++) {
+        auto it = chunkMap.find(Coord(x, i, z));
+        if (it == chunkMap.end() || it->second.empty()) {
+            BlocPtr newBloc = std::make_unique<Normal>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+            addBlocToMap(newBloc.get());
+            chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
+        }
+    }
+}
+
+
 // Generate a chunk of blocs
 Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, double scale, double heightMultiplier, double heightOffset) {
     Chunk blocs;
@@ -118,6 +132,9 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
                 BlocPtr bloc = std::make_unique<Sand>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
                 addBlocToMap(bloc.get());
                 blocs.emplace_back(std::move(bloc));
+                if (height <= 19){
+                    generateWater(coordX, height, coordZ);
+                }
             }
             else {
                 BlocPtr bloc = std::make_unique<Grass>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
@@ -260,6 +277,8 @@ int main() {
     GLuint shaderProgram = Shader::createShaderProgram(vertexSource, fragmentSource);
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
     glUseProgram(shaderProgram);
