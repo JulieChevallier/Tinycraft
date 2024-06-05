@@ -20,6 +20,8 @@
 #include "Blocs/Sand.hpp"
 #include "Blocs/Normal.hpp"
 #include "PerlinNoise/PerlinNoise.hpp"
+#include "Texture/TextureManager.hpp"
+#include "stb_image.h"
 
 
 void testTextureLoading(const char* texturePath) {
@@ -100,7 +102,7 @@ void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
         int y = std::get<1>(entry);
         int z = std::get<2>(entry);
         for (int i = y - 3; i < y; ++i) {
-            BlocPtr bloc = std::make_unique<Normal>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+            BlocPtr bloc = std::make_unique<Stone>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
             addBlocToMap(bloc.get());
             chunkMap[Coord(x, i, z)].emplace_back(std::move(bloc));
         }
@@ -121,7 +123,7 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
             int coordZ = std::get<2>(startCoord) + z;
             double noise = perlin.noise(coordX * scale, 0.0, coordZ * scale);
             int height = static_cast<int>(noise * heightMultiplier + heightOffset);
-            BlocPtr bloc = std::make_unique<Normal>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+            BlocPtr bloc = std::make_unique<Grass>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
             addBlocToMap(bloc.get());
             blocs.emplace_back(std::move(bloc));
             listeBlocAVerif.push_back(Coord(coordX, height, coordZ));
@@ -262,6 +264,7 @@ int main() {
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
     glUseProgram(shaderProgram);
+    stbi_set_flip_vertically_on_load(true);
 
     glm::vec3 cameraPos = glm::vec3(0.0f, 40.0f, 0.0f);
     glm::vec3 cameraFront = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -292,8 +295,6 @@ int main() {
     double scale = 0.05; 
     double heightMultiplier = 40.0;  // height max
     double heightOffset = 30.0; // height normal
-
-    
 
     Coord initialChunkCoord = {0, 0, 0};
     updateChunksAroundCamera(perlin, Coord(0,0,0), scale, heightMultiplier, heightOffset);

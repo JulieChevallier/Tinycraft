@@ -4,7 +4,6 @@
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <iostream>
-#include "stb_image.h"
 
 class Bloc {
 public:
