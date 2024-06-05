@@ -10,6 +10,10 @@ enum class BlocType {
     GRASS,
     STONE,
     SAND,
+    WOOD,
+    LEAVES,
+    WATER,
+    PLANKS,
     NORMAL
 };
 

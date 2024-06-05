@@ -20,6 +20,9 @@
 #include "Blocs/Grass.hpp"
 #include "Blocs/Stone.hpp"
 #include "Blocs/Sand.hpp"
+#include "Blocs/Wood.hpp"
+#include "Blocs/Leaves.hpp"
+#include "Blocs/Water.hpp"
 #include "Blocs/Normal.hpp"
 #include "PerlinNoise/PerlinNoise.hpp"
 #include "Texture/TextureManager.hpp"
@@ -46,6 +49,8 @@ std::unordered_map<Coord, Bloc*, CoordHash> blocMap;
 std::vector<Coord> chunkCoordAlreadyGenerated;
 std::vector<Coord> listeBlocAVerif;
 
+Coord cameraChunkCoord = {0, 0, 0};
+
 void addBlocToMap(Bloc* bloc) {
     int x = static_cast<int>(std::round(bloc->getPosition().x));
     int y = static_cast<int>(std::round(bloc->getPosition().y));
@@ -65,6 +70,19 @@ void addBlocToMap(Bloc* bloc) {
 //     }
 //     return -1;
 // }
+
+// Generate water blocs
+void generateWater(int x, int y, int z) {
+    if (y < 19) {
+        int i = 19;
+        auto it = chunkMap.find(Coord(x, i, z));
+        if (it == chunkMap.end() || it->second.empty()) {
+            BlocPtr newBloc = std::make_unique<Water>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+            addBlocToMap(newBloc.get());
+            chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
+        }
+    }
+}
 
 // Smoothing the terrain by adding blocs between the blocs
 // TODO: Make an algorithm which is more useful
@@ -89,13 +107,18 @@ void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
                 BlocPtr newBloc;
                 if (isSand) {
                     newBloc = std::make_unique<Sand>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+                    addBlocToMap(newBloc.get());
+                    chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
+                    generateWater(x, i, z);
                 } else if (i == y - 1) {
                     newBloc = std::make_unique<Dirt>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+                    addBlocToMap(newBloc.get());
+                    chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
                 } else {
                     newBloc = std::make_unique<Stone>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+                    addBlocToMap(newBloc.get());
+                    chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
                 }
-                addBlocToMap(newBloc.get());
-                chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
             }
 
             toRemove.push_back(entry);
@@ -107,17 +130,79 @@ void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
     }
 }
 
-void generateWater(int x, int y, int z) {
-    for (int i = y; i < 19; i++) {
-        auto it = chunkMap.find(Coord(x, i, z));
-        if (it == chunkMap.end() || it->second.empty()) {
-            BlocPtr newBloc = std::make_unique<Normal>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
-            addBlocToMap(newBloc.get());
-            chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
+bool canPlaceTree(int x, int y, int z) {
+    std::vector<Coord> treeCoords = {
+        {x, y, z}, {x, y + 1, z}, {x, y + 2, z}, {x, y + 3, z},
+        {x, y + 5, z}, {x + 1, y + 4, z}, {x + 1, y + 5, z}, {x - 1, y + 4, z}, {x - 1, y + 5, z}, {x, y + 4, z + 1}, {x, y + 5, z + 1}, {x, y + 4, z - 1}, {x, y + 5, z - 1}, {x + 1, y + 2, z},
+        {x - 1, y + 2, z}, {x, y + 2, z + 1}, {x, y + 2, z - 1}, {x + 1, y + 3, z + 1}, {x + 1, y + 2, z + 1}, {x - 1, y + 3, z + 1}, {x - 1, y + 2, z + 1}, {x + 1, y + 3, z - 1},
+        {x + 1, y + 2, z - 1}, {x - 1, y + 3, z - 1}, {x - 1, y + 2, z - 1}, {x + 2, y + 3, z}, {x + 2, y + 2, z}, {x - 2, y + 3, z}, {x - 2, y + 2, z}, {x, y + 3, z + 2}, {x, y + 2, z + 2}, {x, y + 3, z - 2}, {x, y + 3, z - 2},
+        {x, y + 2, z - 2}, {x + 2, y + 3, z + 2}, {x + 2, y + 2, z + 2}, {x - 2, y + 3, z + 2}, {x - 2, y + 2, z + 2}, {x + 2, y + 3, z - 2}, {x + 2, y + 2, z - 2}, {x - 2, y + 2, z - 2}, {x - 2, y + 2, z - 1},
+        {x - 2, y + 3, z - 1}, {x - 2, y + 2, z + 1}, {x - 2, y + 3, z + 1}, {x + 2, y + 2, z - 1}, {x + 2, y + 3, z - 1}, {x + 2, y + 2, z + 1}, {x + 2, y + 3, z + 1}, {x - 1, y + 2, z - 2}, {x - 1, y + 3, z - 2}, {x - 1, y + 2, z + 2},
+        {x - 1, y + 3, z + 2}, {x + 1, y + 2, z - 2}, {x + 1, y + 3, z - 2}, {x + 1, y + 2, z + 2}, {x + 1, y + 3, z + 2}
+    };
+
+    for (const auto& coord : treeCoords) {
+        if (chunkMap.find(coord) != chunkMap.end()) {
+            return false;
         }
     }
+    return true;
 }
 
+bool isValidLocation(int x, int y, int z) {
+    int cameraX = std::get<0>(cameraChunkCoord);
+    int cameraZ = std::get<2>(cameraChunkCoord);
+
+    if (x < cameraX - CHUNK_SIZE || x > cameraX + CHUNK_SIZE * NUM_CHUNKS_PER_SIDE) {
+        return false;
+    }
+    if (z < cameraZ - CHUNK_SIZE || z > cameraZ + CHUNK_SIZE * NUM_CHUNKS_PER_SIDE) {
+        return false;
+    }
+    return true;
+}
+
+std::vector<Coord> generateLeavesCoords(int x, int y, int z) {
+    std::vector<Coord> leavesCoords = {
+        {x, y + 5, z}, {x + 1, y + 4, z}, {x + 1, y + 5, z}, {x - 1, y + 4, z}, {x - 1, y + 5, z}, {x, y + 4, z + 1}, {x, y + 5, z + 1}, {x, y + 4, z - 1}, {x, y + 5, z - 1}, {x + 1, y + 2, z},
+        {x - 1, y + 2, z}, {x, y + 2, z + 1}, {x, y + 2, z - 1}, {x + 1, y + 3, z + 1}, {x + 1, y + 2, z + 1}, {x - 1, y + 3, z + 1}, {x - 1, y + 2, z + 1}, {x + 1, y + 3, z - 1},
+        {x + 1, y + 2, z - 1}, {x - 1, y + 3, z - 1}, {x - 1, y + 2, z - 1}, {x + 2, y + 3, z}, {x + 2, y + 2, z}, {x - 2, y + 3, z}, {x - 2, y + 2, z}, {x, y + 3, z + 2}, {x, y + 2, z + 2}, {x, y + 3, z - 2}, {x, y + 3, z - 2},
+        {x, y + 2, z - 2}, {x + 2, y + 3, z + 2}, {x + 2, y + 2, z + 2}, {x - 2, y + 3, z + 2}, {x - 2, y + 2, z + 2}, {x + 2, y + 3, z - 2}, {x + 2, y + 2, z - 2}, {x - 2, y + 2, z - 2}, {x - 2, y + 2, z - 1},
+        {x - 2, y + 3, z - 1}, {x - 2, y + 2, z + 1}, {x - 2, y + 3, z + 1}, {x + 2, y + 2, z - 1}, {x + 2, y + 3, z - 1}, {x + 2, y + 2, z + 1}, {x + 2, y + 3, z + 1}, {x - 1, y + 2, z - 2}, {x - 1, y + 3, z - 2}, {x - 1, y + 2, z + 2},
+        {x - 1, y + 3, z + 2}, {x + 1, y + 2, z - 2}, {x + 1, y + 3, z - 2}, {x + 1, y + 2, z + 2}, {x + 1, y + 3, z + 2}
+    };
+
+    return leavesCoords;
+}
+
+// Generate a tree
+void generateTree(int x, int y, int z) {
+    // Vérifiez d'abord si l'arbre peut être placé
+    if (!canPlaceTree(x, y, z)) {
+        return; // Ne pas générer l'arbre si une coordonnée est déjà occupée ou non valide
+    }
+
+    // Générer le tronc de l'arbre
+    for (int i = 0; i < 4; ++i) {
+        // if (!isValidLocation(x, y + i, z)) {
+        //     return; // Assurez-vous que la localisation est valide
+        // }
+        BlocPtr wood = std::make_unique<Wood>(static_cast<float>(x), static_cast<float>(y + i), static_cast<float>(z));
+        addBlocToMap(wood.get());
+        chunkMap[Coord(x, y + i, z)].emplace_back(std::move(wood));
+    }
+
+    // Générer les feuilles
+    std::vector<Coord> leavesCoords = generateLeavesCoords(x, y, z); // Une fonction pour définir les coordonnées des feuilles
+    for (const auto& coord : leavesCoords) {
+        // if (!isValidLocation(std::get<0>(coord), std::get<1>(coord), std::get<2>(coord))) {
+        //     continue; // Vérifie chaque coordonnée de feuille avant placement
+        // }
+        BlocPtr leaves = std::make_unique<Leaves>(static_cast<float>(std::get<0>(coord)), static_cast<float>(std::get<1>(coord)), static_cast<float>(std::get<2>(coord)));
+        addBlocToMap(leaves.get());
+        chunkMap[coord].emplace_back(std::move(leaves));
+    }
+}
 
 // Generate a chunk of blocs
 Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, double scale, double heightMultiplier, double heightOffset) {
@@ -132,14 +217,16 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
                 BlocPtr bloc = std::make_unique<Sand>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
                 addBlocToMap(bloc.get());
                 blocs.emplace_back(std::move(bloc));
-                if (height <= 19){
-                    generateWater(coordX, height, coordZ);
-                }
             }
             else {
                 BlocPtr bloc = std::make_unique<Grass>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
                 addBlocToMap(bloc.get());
                 blocs.emplace_back(std::move(bloc));
+
+                // TODO: Generate tree without Erreur de segmentation
+                // if (coordX % 12 == 0 && coordZ % 12 == 0) {
+                //     generateTree(coordX, height, coordZ);
+                // }
             }
             
             listeBlocAVerif.push_back(Coord(coordX, height, coordZ));
@@ -310,9 +397,13 @@ int main() {
     PerlinNoise perlin;
 
     int chunkSize = 16;
-    double scale = 0.05; 
-    double heightMultiplier = 30.0;  // height max
-    double heightOffset = 30.0; // height normal
+    double scale = 0.05;
+    // Generation with lot of water
+    double heightMultiplier = 19.0;  // height max
+    double heightOffset = 19.0; // height normal
+    // Generation with lot of mountains
+    // double heightMultiplier = 30.0;  // height max
+    // double heightOffset = 30.0; // height normal
 
     Coord initialChunkCoord = {0, 0, 0};
     updateChunksAroundCamera(perlin, Coord(0,0,0), scale, heightMultiplier, heightOffset);
@@ -383,7 +474,7 @@ int main() {
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0.135f, 0.206f, 0.235f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
@@ -399,7 +490,7 @@ int main() {
         glm::mat4 viewProjection = projection * view;
         frustum.update(viewProjection);
 
-        Coord cameraChunkCoord = {
+        cameraChunkCoord = {
             static_cast<int>(floor(cameraPos.x / CHUNK_SIZE) * CHUNK_SIZE),
             0,
             static_cast<int>(floor(cameraPos.z / CHUNK_SIZE) * CHUNK_SIZE)
@@ -408,16 +499,6 @@ int main() {
         if(std::find(chunkCoordAlreadyGenerated.begin(), chunkCoordAlreadyGenerated.end(), cameraChunkCoord) == chunkCoordAlreadyGenerated.end()) {
             updateChunksAroundCamera(perlin, cameraChunkCoord, scale, heightMultiplier, heightOffset);
         }
-
-        Dirt dirt(0.0f, 0.0f, 0.0f);
-        Grass grass(2.0f, 0.0f, 0.0f);
-        Stone stone(4.0f, 0.0f, 0.0f);
-        Sand sand(6.0f, 0.0f, 0.0f);
-
-        addBlocToMap(&dirt);
-        addBlocToMap(&grass);
-        addBlocToMap(&stone);
-        addBlocToMap(&sand);
         
         for (const auto& pair : blocMap) {
             const Bloc* bloc = pair.second;
