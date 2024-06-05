@@ -9,6 +9,10 @@ public:
         setColor();
     }
 
+    BlocType getType() const override {
+        return BlocType::NORMAL;
+    }
+
 protected:
     void setupTexture() override {
         // No texture

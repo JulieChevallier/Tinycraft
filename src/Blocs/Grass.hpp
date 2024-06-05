@@ -13,6 +13,10 @@ public:
         setupTexture();
     }
 
+    BlocType getType() const override {
+        return BlocType::GRASS;
+    }
+
 protected:
     void setupTexture() override {
         textureSideID = TextureManager::getInstance().getTexture("src/Ressources/grass_block_side.png");

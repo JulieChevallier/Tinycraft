@@ -5,6 +5,14 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
+enum class BlocType {
+    DIRT,
+    GRASS,
+    STONE,
+    SAND,
+    NORMAL
+};
+
 class Bloc {
 public:
     Bloc(float x, float y, float z, bool useTexture = false);
@@ -14,6 +22,7 @@ public:
     glm::vec3 getMinBounds() const { return position - glm::vec3(0.5f, 0.5f, 0.5f); }
     glm::vec3 getMaxBounds() const { return position + glm::vec3(0.5f, 0.5f, 0.5f); }
     bool getUseTexture() const { return useTexture; }
+    virtual BlocType getType() const = 0;
 
 protected:
     virtual void setupTexture() = 0;

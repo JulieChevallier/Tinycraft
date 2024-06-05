@@ -10,6 +10,10 @@ public:
         setupTexture();
     }
 
+    BlocType getType() const override {
+        return BlocType::DIRT;
+    }
+
 protected:
     void setupTexture() override {
         textureID = TextureManager::getInstance().getTexture("src/Ressources/dirt.png");

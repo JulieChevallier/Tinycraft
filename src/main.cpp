@@ -23,34 +23,6 @@
 #include "Texture/TextureManager.hpp"
 #include "stb_image.h"
 
-
-void testTextureLoading(const char* texturePath) {
-    int width, height, nrChannels;
-    unsigned char* data = stbi_load(texturePath, &width, &height, &nrChannels, 0);
-    if (data) {
-        GLuint textureID;
-        glGenTextures(1, &textureID);
-        glBindTexture(GL_TEXTURE_2D, textureID);
-
-        GLenum format = GL_RGB;
-        if (nrChannels == 4)
-            format = GL_RGBA;
-
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        stbi_image_free(data);
-        std::cout << "Texture loaded: " << texturePath << " - " << width << "x" << height << " channels: " << nrChannels << std::endl;
-    } else {
-        std::cerr << "Failed to load texture: " << texturePath << std::endl;
-    }
-}
-
 using BlocPtr = std::unique_ptr<Bloc>;
 using Chunk = std::vector<BlocPtr>;
 using Coord = std::tuple<int, int, int>;
@@ -101,12 +73,31 @@ void smoothChunk(std::vector<Coord>& listeBlocAVerif) {
         int x = std::get<0>(entry);
         int y = std::get<1>(entry);
         int z = std::get<2>(entry);
-        for (int i = y - 3; i < y; ++i) {
-            BlocPtr bloc = std::make_unique<Stone>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
-            addBlocToMap(bloc.get());
-            chunkMap[Coord(x, i, z)].emplace_back(std::move(bloc));
+
+        auto it = chunkMap.find(Coord(x, y, z));
+        if (it != chunkMap.end()) {
+            bool isSand = false;
+            for (const auto& bloc : it->second) {
+                if (bloc->getType() == BlocType::SAND) {
+                    isSand = true;
+                    break;
+                }
+            }
+            for (int i = y - 3; i < y; ++i) {
+                BlocPtr newBloc;
+                if (isSand) {
+                    newBloc = std::make_unique<Sand>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+                } else if (i == y - 1) {
+                    newBloc = std::make_unique<Dirt>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+                } else {
+                    newBloc = std::make_unique<Stone>(static_cast<float>(x), static_cast<float>(i), static_cast<float>(z));
+                }
+                addBlocToMap(newBloc.get());
+                chunkMap[Coord(x, i, z)].emplace_back(std::move(newBloc));
+            }
+
+            toRemove.push_back(entry);
         }
-        toRemove.push_back(entry);
     }
 
     for (const auto& rem : toRemove) {
@@ -123,9 +114,17 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
             int coordZ = std::get<2>(startCoord) + z;
             double noise = perlin.noise(coordX * scale, 0.0, coordZ * scale);
             int height = static_cast<int>(noise * heightMultiplier + heightOffset);
-            BlocPtr bloc = std::make_unique<Grass>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
-            addBlocToMap(bloc.get());
-            blocs.emplace_back(std::move(bloc));
+            if (height <= 20){
+                BlocPtr bloc = std::make_unique<Sand>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+                addBlocToMap(bloc.get());
+                blocs.emplace_back(std::move(bloc));
+            }
+            else {
+                BlocPtr bloc = std::make_unique<Grass>(static_cast<float>(coordX), static_cast<float>(height), static_cast<float>(coordZ));
+                addBlocToMap(bloc.get());
+                blocs.emplace_back(std::move(bloc));
+            }
+            
             listeBlocAVerif.push_back(Coord(coordX, height, coordZ));
             chunkMap[Coord(coordX, height, coordZ)] = std::move(blocs);
         }
@@ -293,7 +292,7 @@ int main() {
 
     int chunkSize = 16;
     double scale = 0.05; 
-    double heightMultiplier = 40.0;  // height max
+    double heightMultiplier = 30.0;  // height max
     double heightOffset = 30.0; // height normal
 
     Coord initialChunkCoord = {0, 0, 0};
@@ -400,13 +399,6 @@ int main() {
         addBlocToMap(&grass);
         addBlocToMap(&stone);
         addBlocToMap(&sand);
-
-        testTextureLoading("src/Ressources/grass_block_top.png");
-        testTextureLoading("src/Ressources/grass_block_side.png");
-        testTextureLoading("src/Ressources/dirt.png");
-        testTextureLoading("src/Ressources/stone.png");
-        testTextureLoading("src/Ressources/sand.png");
-
         
         for (const auto& pair : blocMap) {
             const Bloc* bloc = pair.second;

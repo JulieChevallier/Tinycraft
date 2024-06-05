@@ -10,6 +10,10 @@ public:
         setupTexture();
     }
 
+    BlocType getType() const override {
+        return BlocType::STONE;
+    }
+
 protected:
     void setupTexture() override {
         textureID = TextureManager::getInstance().getTexture("src/Ressources/stone.png");
