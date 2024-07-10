@@ -8,7 +8,7 @@ Ce que j'ai fais :
 - Utilisation d'un gestionnaire de texture pour l'optimisation afin de ne pas générer la texture d'un bloc à chaque création de bloc
 - Gestion de "chunk" 16*16 avec génération de map progressive en fonction des déplacements de la caméra
 - Différent types de blocs (herbe, terre, pierre, sable, eau, bois, feuillage) avec du polymorphisme
-- Génération d'arbres
+- Génération d'arbres (A corriger)
 - Déplacement de la caméra
 - Plusieurs Biomes (îles et montagnes)
 - Mise en place d'un système de coordonnées visuelle
