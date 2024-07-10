@@ -45,7 +45,7 @@ const int CHUNK_SIZE = 16;
 const int NUM_CHUNKS_PER_SIDE = 3;
 
 std::unordered_map<Coord, Chunk, CoordHash> chunkMap;
-std::unordered_map<Coord, Bloc*, CoordHash> blocMap;
+std::unordered_map<Coord, Bloc*, CoordHash> blocMap; 
 std::vector<Coord> chunkCoordAlreadyGenerated;
 std::vector<Coord> listeBlocAVerif;
 
@@ -177,12 +177,10 @@ std::vector<Coord> generateLeavesCoords(int x, int y, int z) {
 
 // Generate a tree
 void generateTree(int x, int y, int z) {
-    // Vérifiez d'abord si l'arbre peut être placé
     if (!canPlaceTree(x, y, z)) {
-        return; // Ne pas générer l'arbre si une coordonnée est déjà occupée ou non valide
+        return; 
     }
 
-    // Générer le tronc de l'arbre
     for (int i = 0; i < 4; ++i) {
         // if (!isValidLocation(x, y + i, z)) {
         //     return; // Assurez-vous que la localisation est valide
@@ -192,8 +190,7 @@ void generateTree(int x, int y, int z) {
         chunkMap[Coord(x, y + i, z)].emplace_back(std::move(wood));
     }
 
-    // Générer les feuilles
-    std::vector<Coord> leavesCoords = generateLeavesCoords(x, y, z); // Une fonction pour définir les coordonnées des feuilles
+    std::vector<Coord> leavesCoords = generateLeavesCoords(x, y, z);
     for (const auto& coord : leavesCoords) {
         // if (!isValidLocation(std::get<0>(coord), std::get<1>(coord), std::get<2>(coord))) {
         //     continue; // Vérifie chaque coordonnée de feuille avant placement
@@ -224,7 +221,7 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
                 blocs.emplace_back(std::move(bloc));
 
                 // TODO: Generate tree without Erreur de segmentation
-                // if (coordX % 12 == 0 && coordZ % 12 == 0) {
+                // if (coordX % 8 == 0 && coordZ % 8 == 0) {
                 //     generateTree(coordX, height, coordZ);
                 // }
             }
@@ -308,7 +305,6 @@ struct Frustum {
                                     viewProjection[2].w - viewProjection[2].z), 
                         viewProjection[3].w - viewProjection[3].z + margin); // Plan far
 
-        // Normalize the planes
         for (int i = 0; i < 6; ++i) {
             float length = glm::length(planes[i].normal);
             planes[i].normal = -planes[i].normal;
@@ -322,13 +318,11 @@ struct Frustum {
         for (int i = 0; i < 6; ++i) {
             const Plane& plane = planes[i];
 
-            // Chooses the extreme point of the bloc
             glm::vec3 pVertex = min;
             if (plane.normal.x > 0) pVertex.x = max.x;
             if (plane.normal.y > 0) pVertex.y = max.y;
             if (plane.normal.z > 0) pVertex.z = max.z;
 
-            // If the bloc is outside the frustum
             if (plane.distanceToPoint(pVertex) - tolerance > 0) {
                 return false;
             }
@@ -336,7 +330,6 @@ struct Frustum {
         return true;
     }
 };
-
 
 int main() {
     sf::Font font;
@@ -399,11 +392,11 @@ int main() {
     int chunkSize = 16;
     double scale = 0.05;
     // Generation with lot of water
-    double heightMultiplier = 19.0;  // height max
-    double heightOffset = 19.0; // height normal
+    // double heightMultiplier = 19.0;  // height max
+    // double heightOffset = 19.0; // height normal
     // Generation with lot of mountains
-    // double heightMultiplier = 30.0;  // height max
-    // double heightOffset = 30.0; // height normal
+    double heightMultiplier = 30.0;  // height max
+    double heightOffset = 30.0; // height normal
 
     Coord initialChunkCoord = {0, 0, 0};
     updateChunksAroundCamera(perlin, Coord(0,0,0), scale, heightMultiplier, heightOffset);
@@ -474,7 +467,7 @@ int main() {
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        glClearColor(0.135f, 0.206f, 0.235f, 1.0f);
+        glClearColor(0.4f, 0.7f, 0.9f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);

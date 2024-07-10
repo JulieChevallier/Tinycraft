@@ -119,5 +119,3 @@ void Bloc::Draw(GLuint shaderProgram) const {
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
 }
-
-
