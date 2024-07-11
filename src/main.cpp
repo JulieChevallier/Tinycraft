@@ -69,11 +69,11 @@ int main() {
     int chunkSize = 16;
     double scale = 0.05;
     // Generation with lot of water
-    // double heightMultiplier = 19.0;  // height max
-    // double heightOffset = 19.0; // height normal
+    double heightMultiplier = 19.0;  // height max
+    double heightOffset = 19.0; // height normal
     // Generation with lot of mountains
-    double heightMultiplier = 30.0;  // height max
-    double heightOffset = 30.0; // height normal
+    // double heightMultiplier = 30.0;  // height max
+    // double heightOffset = 30.0; // height normal
 
     // Generate initial chunk
     Coord initialChunkCoord = {0, 0, 0};

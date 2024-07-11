@@ -15,7 +15,7 @@ std::vector<Coord> listeBlocAVerif; // List of blocs to verify for smoothing
 Coord cameraChunkCoord = {0, 0, 0};
 
 const int CHUNK_SIZE = 16; // Size of a chunk
-const int NUM_CHUNKS_PER_SIDE = 3; // Number of chunks per side generate (3*3 chunks in total)
+const int NUM_CHUNKS_PER_SIDE = 5; // Number of chunks per side generate (3*3 chunks in total)
 
 std::size_t CoordHash::operator()(const std::tuple<int, int, int>& coord) const noexcept {
     auto [x, y, z] = coord;
@@ -201,9 +201,9 @@ Chunk generateChunk(PerlinNoise& perlin, Coord startCoord, Coord endCoord, doubl
                 blocs.emplace_back(std::move(bloc));
 
                 // TODO: Generate tree without Erreur de segmentation
-                // if (coordX % 8 == 0 && coordZ % 8 == 0) {
-                //     generateTree(coordX, height, coordZ);
-                // }
+                if (coordX % 8 == 0 && coordZ % 8 == 0) {
+                    generateTree(coordX, height, coordZ);
+                }
             }
             
             listeBlocAVerif.push_back(Coord(coordX, height, coordZ));
