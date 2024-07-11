@@ -4,7 +4,7 @@ A little minecraft for my own pleasure
 TinyCraft is a 3D sandbox game developed using C++ and OpenGL, with a focus on generating and rendering a voxel-based world.
 
 ##  Before
-![TinyCraft before texture](/src/Ressources/readme_V1.png)
+![TinyCraft before texture](/src/Ressources/readme_V1_1.png)
 ##  Now
 ![TinyCraft mountains](/src/Ressources/readme_V2_1.png)
 ![TinyCraft island](/src/Ressources/readme_V2_2.png)
