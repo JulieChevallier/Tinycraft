@@ -3,8 +3,8 @@
 #include <random>
 #include <algorithm>
 
-// Constructor : initialize the permutation vector with a random engine and shuffle it to get a random permutation vector of 256 elements (0 to 255) 
-// and then duplicate it to avoid overflow when indexing the permutation vector in the noise function
+// Constructor
+// Initialize the permutation vector with a random engine and shuffle it to get a random permutation vector of 256 elements (0 to 255) and then duplicate it to avoid overflow when indexing the permutation vector in the noise function
 PerlinNoise::PerlinNoise() {
     p.resize(256);
     std::iota(p.begin(), p.end(), 0);
@@ -14,6 +14,8 @@ PerlinNoise::PerlinNoise() {
 }
 
 // Calculate the noise value at a given position (x, y, z) in the 3D space
+// x, y, z: position in the 3D space
+// return: the noise value at the given position
 double PerlinNoise::noise(double x, double y, double z) const {
     int X = static_cast<int>(std::floor(x)) & 255;
     int Y = static_cast<int>(std::floor(y)) & 255;
@@ -38,16 +40,25 @@ double PerlinNoise::noise(double x, double y, double z) const {
 }
 
 // return the fade of the noise
+// t: value to fade
+// return: the fade of the noise
 double PerlinNoise::fade(double t) const {
     return t * t * t * (t * (t * 6 - 15) + 10); 
 }
 
 // return the linear interpolation of the noise
+// t: value to interpolate
+// a: first value
+// b: second value
+// return: the linear interpolation of the noise
 double PerlinNoise::lerp(double t, double a, double b) const {
     return a + t * (b - a);
 }
 
 // return the gradient of the noise
+// hash: hash value
+// x, y, z: position in the 3D space
+// return: the gradient of the noise
 double PerlinNoise::grad(int hash, double x, double y, double z) const {
     int h = hash & 15;
     double u = h < 8 ? x : y;

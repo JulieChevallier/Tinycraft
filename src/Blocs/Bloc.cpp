@@ -3,8 +3,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+// Constructor
+// The constructor creates the VAO and VBO for the bloc and sets the vertices and texture coordinates. It also sets the color of the bloc if it doesn't use a texture
+// x, y, z: position of the bloc
+// useTexture: if the bloc should use a texture
 Bloc::Bloc(float x, float y, float z, bool useTexture) : position(x, y, z), useTexture(useTexture) {   
- 
     float vertices[] = {
         // positions          // texture coords
         // Front face
@@ -78,6 +81,8 @@ Bloc::Bloc(float x, float y, float z, bool useTexture) : position(x, y, z), useT
     }
 }
 
+// Destructor
+// Deletes the VAO and VBO
 Bloc::~Bloc() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
@@ -86,6 +91,8 @@ Bloc::~Bloc() {
 void Bloc::setupTexture() {
 }
 
+// Sets the color of the bloc based on its y position
+// The color is a gradient from blue to green to orange to red
 void Bloc::setColor() {
     float normalizedY = (position.y + 20.0f) / 100.0f;
     if (normalizedY <= 0.25f) {
@@ -99,6 +106,8 @@ void Bloc::setColor() {
     }
 }
 
+// Draws the bloc
+// shaderProgram: the shader program to use
 void Bloc::Draw(GLuint shaderProgram) const {
     glUseProgram(shaderProgram);
     glBindVertexArray(VAO);

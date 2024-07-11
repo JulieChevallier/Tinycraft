@@ -2,11 +2,17 @@
 #include "stb_image.h"
 #include <iostream>
 
+// Constructor
+// Initialize the texture manager
+// The constructor is private to prevent instanciation of the class
 TextureManager& TextureManager::getInstance() {
     static TextureManager instance;
     return instance;
 }
 
+// Get the texture from the filepath
+// filepath: path to the texture
+// return: the texture ID
 GLuint TextureManager::getTexture(const std::string& filepath) {
     auto it = textures.find(filepath);
     if (it != textures.end()) {
@@ -18,6 +24,9 @@ GLuint TextureManager::getTexture(const std::string& filepath) {
     }
 }
 
+// Manage the loading of the texture by loading the image and creating the texture
+// filepath: path to the texture
+// return: the texture ID
 GLuint TextureManager::loadTexture(const std::string& filepath) {
     int width, height, nrChannels;
     unsigned char* data = stbi_load(filepath.c_str(), &width, &height, &nrChannels, 0);

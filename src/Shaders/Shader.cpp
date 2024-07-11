@@ -4,6 +4,8 @@
 #include <sstream>
 
 // Read the shader source from a file
+// fileName: the name of the file
+// return: the shader source as a string
 std::string Shader::readShaderSource(const std::string& fileName) {
     std::ifstream file(fileName);
     std::stringstream buffer;
@@ -12,6 +14,9 @@ std::string Shader::readShaderSource(const std::string& fileName) {
 }
 
 // Compile the shader
+// source: the shader source
+// type: the type of the shader (GL_VERTEX_SHADER or GL_FRAGMENT_SHADER)
+// return: the shader
 GLuint Shader::compileShader(const std::string& source, GLenum type) {
     GLuint shader = glCreateShader(type);
     const char* src = source.c_str();
@@ -30,6 +35,9 @@ GLuint Shader::compileShader(const std::string& source, GLenum type) {
 }
 
 // Create the shader program
+// vertexShaderSource: the vertex shader source
+// fragmentShaderSource: the fragment shader source
+// return: the shader program
 GLuint Shader::createShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource) {
     GLuint vertexShader = compileShader(vertexShaderSource, GL_VERTEX_SHADER);
     GLuint fragmentShader = compileShader(fragmentShaderSource, GL_FRAGMENT_SHADER);
